@@ -1,0 +1,3 @@
+param TotalTechnologyAnnualActivityLowerLimit default 0 :=
+;
+

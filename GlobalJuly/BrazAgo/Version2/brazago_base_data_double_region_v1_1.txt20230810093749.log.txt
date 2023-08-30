@@ -1,0 +1,12 @@
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Data file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt
+Model file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/1/model_osemosys_code_cloud.txt
+GLPSOL Output file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt.lp
+Results file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt.results.txt
+Processed Results file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt.results.txt.processed_results.csv
+Log file: /Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt20230810093749.log.txt
+------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Running /usr/local/bin/glpsol --check -m "/Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/1/model_osemosys_code_cloud.txt" -d "/Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt" --wlp "/Users/paulovitorbarbosaramos/Documents/Global July/OSeMOSYS/Brazil/brazil_regionalization/brazago_base_data_double_region_v1_1.txt.lp"
+------------------------------------------------------------------------------------------------------------------------------------------------------
+Error: ApplicationName='/usr/local/bin/glpsol', CommandLine='--check -m "/Users/paulovit

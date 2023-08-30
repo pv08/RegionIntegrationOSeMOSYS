@@ -1,0 +1,8 @@
+#####################
+# Parameters #
+#####################
+#
+param ResultsPath :="C:\Users\Carla\Desktop\Runs\2020\UN\CLEWSO\2B\res\csv";
+param AccumulatedAnnualDemand default 0 :=
+;
+

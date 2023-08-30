@@ -1,0 +1,3 @@
+param CapacityOfOneTechnologyUnit default 0 :=
+;
+

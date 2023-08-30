@@ -1,0 +1,3 @@
+param TotalAnnualMinCapacity default 0 :=
+;
+

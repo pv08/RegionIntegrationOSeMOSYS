@@ -1,0 +1,9 @@
+#####################
+# Parameters #
+#####################
+#
+param ResultsPath :="C:\Users\";
+
+param AccumulatedAnnualDemand default 0 :=
+;
+

@@ -1,0 +1,3 @@
+param ModelPeriodExogenousEmission default 0 :
+EMIC02 EMICH4 EMIFGA EMIN2O EMIREN :=
+;

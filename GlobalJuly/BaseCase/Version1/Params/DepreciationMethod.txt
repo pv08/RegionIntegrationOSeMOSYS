@@ -1,0 +1,3 @@
+param DepreciationMethod default 1 :=
+;
+

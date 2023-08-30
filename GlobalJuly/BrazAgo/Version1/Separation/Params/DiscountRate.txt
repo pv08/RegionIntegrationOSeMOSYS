@@ -1,0 +1,3 @@
+param DiscountRate default 0.05 :=
+;
+

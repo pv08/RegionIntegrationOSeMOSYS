@@ -1,0 +1,3 @@
+param TotalAnnualMinCapacityInvestment default 0 :=
+;
+

@@ -1,0 +1,3 @@
+param CapitalCostStorage default 0 :=
+;
+
