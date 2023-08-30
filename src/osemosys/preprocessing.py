@@ -1,4 +1,6 @@
 import pandas as pd
+import json
+import numpy as np
 from src.utils.functions import mkdir_if_not_exists
 from tqdm import tqdm
 def CatchUniVariateData(region, data):
@@ -48,14 +50,70 @@ def CapacityToActivityUnit(region, data):
         value = f"{region} {' '.join(str(e) for e in df[df.columns[0]].values)} \n"
         return value
 class SpreadSheetProcessing:
-    def __init__(self, df, start_year=2015, end_year=2070, year_rate=1):
+    def __init__(self, df, args, start_year=2015, end_year=2070, year_rate=1):
         self.df = df
-        self.sets = self.create_set_block(df=self.df)
+        self.args = args
         self.base_years = list(range(start_year, end_year, year_rate))
+        self.sets = {
+            'EMISSION': [],
+            'REGION': self.args.list_regions,
+            'MODE_OF_OPERATION': [],
+            'FUEL': [],
+            'STORAGE': None,
+            'TECHNOLOGY': [],
+            'YEAR': self.base_years,
+            'TIMESLICE': [],
+        }
+
         self.default_values = [0, 99999, 0, 1, 1, 0, 0, 0.0001, 1, 0.05, 0, 0, 0, 0, 99999, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                                0, 0, 0, 99999, 99999, 0, 0, 0, 99999, 0, 99999, 0, 0.0001, 0]
+
+        self.preprocess()
+        self.create_set_block()
+
         self.parameters = self.create_default_param_dics(df=self.df, default_values=self.default_values)
         self.create_params_blocks(self.parameters, self.base_years)
+
+
+    def preprocess(self):
+        self.parameter = {}
+        value_default = list(zip(self.df['Parameter'].unique(), self.default_values))
+        for param, default_value in tqdm(value_default, total=len(self.df['Parameter'].unique())):
+            param_selection = self.df[self.df['Parameter'] == param]
+            param_selection.dropna(axis=1, how='all', inplace=True)
+            if self.args.change_regions:
+                self.parameter[param] = []
+                for region in self.args.list_regions:
+                    region_df = param_selection.copy()
+                    region_df.replace('RE1', region, inplace=True)
+                    for col in region_df.columns[2: -1-len(self.base_years)]:
+                        if col in ['TECHNOLOGY', 'EMISSION', 'FUEL']:
+                            region_df[col] = region_df[col].astype(str) + f"_{region}"
+                    self.parameter[param] += json.loads(region_df.to_json(orient='records'))
+
+            else:
+                self.parameter[param] = json.loads(param_selection.to_json(orient='records'))
+        # TODO: {Ver a lógica para colocar as tecnologias de conexão e limitação de distribuição e transmissão}
+
+        mkdir_if_not_exists('etc/')
+        mkdir_if_not_exists('etc/logs')
+        if self.args.save_json:
+            with open(f'etc/logs/parameters.json', "w") as outfile:
+                json.dump(self.parameter, outfile)
+        self.df_updated = []
+        for param, def_value in zip(self.parameter.keys(), self.default_values):
+            temp = pd.DataFrame(self.parameter[param])
+            temp = temp.replace(def_value, np.nan)
+            temp.dropna(axis=0, how='any', inplace=True)
+            set_columns = temp.columns[1: -1-len(self.base_years)]
+            for col in set_columns:
+                for value in temp[col].unique():
+                    if value not in self.sets[col]:
+                        self.sets[col].append(value)
+            temp.to_csv(f'etc/logs/{param}.csv', index=False)
+            self.df_updated += self.parameter[param]
+        self.df_updated = pd.DataFrame(self.df_updated)
+        self.df_updated.to_csv(f'db/file_updated.csv', index=False)
 
 
     @staticmethod
@@ -66,23 +124,13 @@ class SpreadSheetProcessing:
             temp.dropna(axis=1, how='all', inplace=True)
             parameters[par] = {'data': temp, 'default_value': default}
         return parameters
-    @staticmethod
-    def create_set_block(df):
-        sets = {
-            'emission': [value for value in df['EMISSION'].unique() if type(value) != float],
-            'region': [value for value in df['REGION'].unique() if type(value) != float],
-            'mode_of_operation': [value for value in df['MODE_OF_OPERATION'].unique() if str(value) != 'nan'],
-            'fuel': [value for value in df['FUEL'].unique() if type(value) != float],
-            'storage': None,
-            'technology': [value for value in df['TECHNOLOGY'].unique() if type(value) != float],
-            'year': list(df.columns[10:]),
-            'timeslice': [value for value in df['TIMESLICE'].unique() if type(value) != float],
-        }
+
+    def create_set_block(self):
         set_str = ''
-        for set in sets.keys():
+        for set in self.sets.keys():
             txt = ''
             try:
-                for value in sets[set]:
+                for value in self.sets[set]:
                     txt += value + ' '
             except:
                 pass
@@ -93,7 +141,6 @@ class SpreadSheetProcessing:
         with open("etc/sets_block.txt", 'w') as file:
             file.write(set_str)
             file.close()
-        return sets
     @classmethod
     def create_params_blocks(self, parameters, years_range):
         param_str = ""
@@ -130,8 +177,8 @@ class SpreadSheetProcessing:
                     for value1 in param_data[pivot_columns[1]].unique():
                         for value2 in param_data[pivot_columns[2]].unique():
                             header, content = CatchTriVariateData(region=region, param_column=pivot_columns[1],
-                                                                 param_value=value1, param2_column=pivot_columns[2],
-                                                                 param2_value=value2, data=param_data)
+                                                                  param_value=value1, param2_column=pivot_columns[2],
+                                                                  param2_value=value2, data=param_data)
                 elif len(pivot_columns) < 2:
                     value = CapacityToActivityUnit(region=region, data=param_data)
                 parameters[param]['txt'] += f";\n"
@@ -154,6 +201,6 @@ class OSeMOSYS(SpreadSheetProcessing):
         print(f'[*] - Loading parameters')
         self.original_df = pd.read_excel(self.args.db, sheet_name='Parameters')
         print(f'[!] - Parameters loaded successfully')
-        super().__init__(df=self.original_df)
+        super().__init__(df=self.original_df, args=args)
 
 
