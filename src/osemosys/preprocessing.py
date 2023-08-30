@@ -90,7 +90,6 @@ class SpreadSheetProcessing:
                         if col in ['TECHNOLOGY', 'EMISSION', 'FUEL']:
                             region_df[col] = region_df[col].astype(str) + f"_{region}"
                     self.parameter[param] += json.loads(region_df.to_json(orient='records'))
-
             else:
                 self.parameter[param] = json.loads(param_selection.to_json(orient='records'))
         # TODO: {Ver a lógica para colocar as tecnologias de conexão e limitação de distribuição e transmissão}
@@ -101,6 +100,7 @@ class SpreadSheetProcessing:
             with open(f'etc/logs/parameters.json', "w") as outfile:
                 json.dump(self.parameter, outfile)
         self.df_updated = []
+        self.clean_parameters = {}
         for param, def_value in zip(self.parameter.keys(), self.default_values):
             temp = pd.DataFrame(self.parameter[param])
             temp = temp.replace(def_value, np.nan)
@@ -110,6 +110,7 @@ class SpreadSheetProcessing:
                 for value in temp[col].unique():
                     if value not in self.sets[col]:
                         self.sets[col].append(value)
+            self.clean_parameters[param] = {'values': temp, 'main_cols': set_columns}
             temp.to_csv(f'etc/logs/{param}.csv', index=False)
             self.df_updated += self.parameter[param]
         self.df_updated = pd.DataFrame(self.df_updated)
