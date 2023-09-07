@@ -16,26 +16,26 @@ def CatchUniVariateData(region, data):
     df.drop('REGION', axis=1, inplace=True)
     content = ''
     for _, row in df.iterrows():
-        if sum(row.values[1:]) > 0:
-            content += f"{' '.join(str(e) for e in row.values)}\n"
+        content += f"{' '.join(str(e) for e in row[1:].values)}\n"
     return header, content
 
 def CatchBiVariateData(region, param_column, param_value, data):
     header = f'[{region},{param_value},*,*]'
     df = data[(data['REGION'] == region) & (data[param_column] == param_value)]
-    df.drop(['REGION', param_column], axis=1, inplace=True)
-    content = ''
-    for _, row in df.iterrows():
-        content += f"{' '.join(str(e) for e in row.values)}\n"
-    return header, content
-
+    if not df.empty:
+        df.drop(['REGION', param_column], axis=1, inplace=True)
+        content = ''
+        for _, row in df.iterrows():
+            content += f"{' '.join(str(e) for e in row[1:].values)}\n"
+        return header, content
+    return None, None
 def CatchTriVariateData(region, param_column, param_value, param2_column, param2_value, data):
     header = f'[{region},{param_value},{param2_value},*,*]'
     df = data[(data['REGION'] == region) & (data[param_column] == param_value)& (data[param2_column] == param2_value)]
     df.drop(['REGION', param_column, param2_column], axis=1, inplace=True)
     content = ''
     for _, row in df.iterrows():
-        content += f"{' '.join(str(e) for e in row.values)}\n"
+        content += f"{' '.join(str(e) for e in row[1:].values)}\n"
     return header, content
 
 def CapacityToActivityUnit(region, data):
@@ -57,7 +57,7 @@ class SpreadSheetProcessing:
         self.sets = {
             'EMISSION': [],
             'REGION': self.args.list_regions,
-            'MODE_OF_OPERATION': [],
+            'MODE_OF_OPERATION': ['1'],
             'FUEL': [],
             'STORAGE': None,
             'TECHNOLOGY': [],
@@ -70,9 +70,7 @@ class SpreadSheetProcessing:
 
         self.preprocess()
         self.create_set_block()
-
-        self.parameters = self.create_default_param_dics(df=self.df, default_values=self.default_values)
-        self.create_params_blocks(self.parameters, self.base_years)
+        self.create_params_blocks()
 
 
     def preprocess(self):
@@ -117,14 +115,6 @@ class SpreadSheetProcessing:
         self.df_updated.to_csv(f'db/file_updated.csv', index=False)
 
 
-    @staticmethod
-    def create_default_param_dics(df, default_values):
-        parameters = {}
-        for par, default in zip(df['Parameter'].unique(), default_values):
-            temp = df[df['Parameter'] == par].iloc[:, 1:]
-            temp.dropna(axis=1, how='all', inplace=True)
-            parameters[par] = {'data': temp, 'default_value': default}
-        return parameters
 
     def create_set_block(self):
         set_str = ''
@@ -142,50 +132,75 @@ class SpreadSheetProcessing:
         with open("etc/sets_block.txt", 'w') as file:
             file.write(set_str)
             file.close()
-    @classmethod
-    def create_params_blocks(self, parameters, years_range):
-        param_str = ""
 
-        for param in tqdm(parameters.keys(), total=len(parameters.keys())):
-            param_data = parameters[param]['data']
-            param_columns = param_data.columns
-            pivot_columns = list(param_columns[:len(param_columns)-len(years_range)-1])
-            ref_columns = list(param_columns[len(param_columns)-len(years_range)-1:])
-            param_default_value = parameters[param]['default_value']
-            txt_temp = f"param {param} default {param_default_value} := \n"
-            parameters[param]['txt'] = txt_temp
-            for region in param_data['REGION'].unique():
-                if len(pivot_columns) == 2:
-                    header, content = CatchUniVariateData(region, param_data)
-                    parameters[param]['txt'] += f"{header}:\n"
-                    parameters[param]['txt'] += f"{' '.join(ref_columns)}:=\n"
-                    parameters[param]['txt'] += f"{content}"
-                elif len(pivot_columns) == 3:
-                    if 'MODE_OF_OPERATION' in pivot_columns:
-                        pivot_columns.remove('MODE_OF_OPERATION')
-                    if 'TIMESLICE' in pivot_columns:
-                        pivot_columns.remove('TIMESLICE')
-                    for value in param_data[pivot_columns[1]].unique():
-                        header, content = CatchBiVariateData(region=region, param_column=pivot_columns[1], param_value=value, data=param_data)
-                        parameters[param]['txt'] += f"{header}:\n"
-                        parameters[param]['txt'] += f"{' '.join(ref_columns)}:=\n"
-                        parameters[param]['txt'] += f"{content}\n"
-                elif len(pivot_columns) == 4:
-                    if 'MODE_OF_OPERATION' in pivot_columns:
-                        pivot_columns.remove('MODE_OF_OPERATION')
-                    if 'TIMESLICE' in pivot_columns:
-                        pivot_columns.remove('TIMESLICE')
-                    for value1 in param_data[pivot_columns[1]].unique():
-                        for value2 in param_data[pivot_columns[2]].unique():
-                            header, content = CatchTriVariateData(region=region, param_column=pivot_columns[1],
-                                                                  param_value=value1, param2_column=pivot_columns[2],
-                                                                  param2_value=value2, data=param_data)
-                elif len(pivot_columns) < 2:
-                    value = CapacityToActivityUnit(region=region, data=param_data)
-                parameters[param]['txt'] += f";\n"
-                with open(f'etc/{param}.txt', 'w') as file:
-                    file.write(parameters[param]['txt'])
-                    file.close()
+    def create_params_blocks(self):
+        param_str = ""
+        for param, default in tqdm(zip(self.clean_parameters.keys(), self.default_values), total=len(self.clean_parameters.keys())):
+            parameter = self.clean_parameters[param]
+            self.clean_parameters[param]['txt'] = f"param {param} default {default} :=\n"
+            if len(parameter['main_cols']) == 2 and self.clean_parameters[param]['values'].shape[0] > 0:
+                for region in self.args.list_regions:
+                    header, content = CatchUniVariateData(region, parameter['values'])
+                    self.clean_parameters[param]['txt'] += f"{header}:\n"
+                    self.clean_parameters[param]['txt'] += f"{' '.join(str(e) for e in self.base_years)} :=\n"
+                    self.clean_parameters[param]['txt'] += f"{content}"
+                mkdir_if_not_exists(f'etc/results')
+            elif len(parameter['main_cols']) == 3:
+                for region in self.args.list_regions:
+                    for tec in self.sets[parameter['main_cols'][1]]:
+                        header, content = CatchBiVariateData(region=region,
+                                                             param_column=parameter['main_cols'][1],
+                                                             param_value=tec,
+                                                             data=parameter['values'])
+                        if header is not None and content is not None:
+                            self.clean_parameters[param]['txt'] += f"{header}:\n"
+                            self.clean_parameters[param]['txt'] += f"{' '.join(str(e) for e in self.base_years)} :=\n"
+                            self.clean_parameters[param]['txt'] += f"{content}"
+                print(self.parameter[param])
+            elif len(parameter['main_cols']) == 0:
+                for region in self.args.list_regions:
+                    header, content = CatchBiVariateData(region=region,
+                                                         param_column=parameter['main_cols'][1],
+                                                         param_value=tec,
+                                                         data=parameter['values'])
+            with open(f'etc/results/{param}.txt', 'w') as file:
+                self.clean_parameters[param]['txt'] += f";"
+                file.write(self.clean_parameters[param]['txt'])
+                file.close()
+
+            # if len(self.clean_parameters[param][]):
+            # for region in param_data['REGION'].unique():
+            #     if len(pivot_columns) == 2:
+            #         header, content = CatchUniVariateData(region, param_data)
+            #         parameters[param]['txt'] += f"{header}:\n"
+            #         parameters[param]['txt'] += f"{' '.join(ref_columns)}:=\n"
+            #         parameters[param]['txt'] += f"{content}"
+            #     elif len(pivot_columns) == 3:
+            #         if 'MODE_OF_OPERATION' in pivot_columns:
+            #             pivot_columns.remove('MODE_OF_OPERATION')
+            #         if 'TIMESLICE' in pivot_columns:
+            #             pivot_columns.remove('TIMESLICE')
+            #         for value in param_data[pivot_columns[1]].unique():
+            #             header, content = CatchBiVariateData(region=region, param_column=pivot_columns[1], param_value=value, data=param_data)
+            #             parameters[param]['txt'] += f"{header}:\n"
+            #             parameters[param]['txt'] += f"{' '.join(ref_columns)}:=\n"
+            #             parameters[param]['txt'] += f"{content}\n"
+            #     elif len(pivot_columns) == 4:
+            #         if 'MODE_OF_OPERATION' in pivot_columns:
+            #             pivot_columns.remove('MODE_OF_OPERATION')
+            #         if 'TIMESLICE' in pivot_columns:
+            #             pivot_columns.remove('TIMESLICE')
+            #         for value1 in param_data[pivot_columns[1]].unique():
+            #             for value2 in param_data[pivot_columns[2]].unique():
+            #                 header, content = CatchTriVariateData(region=region, param_column=pivot_columns[1],
+            #                                                       param_value=value1, param2_column=pivot_columns[2],
+            #                                                       param2_value=value2, data=param_data)
+            #     elif len(pivot_columns) < 2:
+            #         value = CapacityToActivityUnit(region=region, data=param_data)
+            #     parameters[param]['txt'] += f";\n"
+            #     with open(f'etc/{param}.txt', 'w') as file:
+            #         file.write(parameters[param]['txt'])
+            #         file.close()
 
 
 
