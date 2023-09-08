@@ -1,30 +1,43 @@
 import pandas as pd
 import json
 import numpy as np
-from src.utils.functions import mkdir_if_not_exists
+from src.utils.functions import mkdir_if_not_exists, saveHeatmap, saveLinePlot
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore")
-def CatchUniVariateData(region, data):
+def CatchUniVariateData(region, data, save_img = True):
     header = f'[{region},*,*]'
     df = data[data['REGION'] == region]
     df.drop('REGION', axis=1, inplace=True)
+    if save_img:
+        mkdir_if_not_exists(f"etc/imgs/")
+        mkdir_if_not_exists(f"etc/imgs/{df['Parameter'].unique()[0]}/")
+        saveHeatmap(x=df.iloc[:,2:].columns,
+                    y=df[df.columns[1]].unique(),
+                    data=df.iloc[:,2:].values, save_path=f"etc/imgs/{df['Parameter'].unique()[0]}/{df['Parameter'].unique()[0]}_{region}")
     content = ''
     for _, row in df.iterrows():
         content += f"{' '.join(str(e) for e in row[1:].values)}\n"
     return header, content
 
-def CatchBiVariateData(region, param_column, param_value, data):
+def CatchBiVariateData(region, param_column, param_value, data, save_img = True):
     header = f'[{region},{param_value},*,*]'
     df = data[(data['REGION'] == region) & (data[param_column] == param_value)]
     if not df.empty:
         df.drop(['REGION', param_column], axis=1, inplace=True)
+        if save_img:
+            mkdir_if_not_exists(f"etc/imgs/")
+            mkdir_if_not_exists(f"etc/imgs/{df['Parameter'].unique()[0]}")
+            saveHeatmap(x=df.iloc[:,2:].columns,
+                        y=df[df.columns[1]].unique(),
+                        data=df.iloc[:,2:].values, save_path=f"etc/imgs/{df['Parameter'].unique()[0]}/{param_value}")
+
         content = ''
         for _, row in df.iterrows():
             content += f"{' '.join(str(e) for e in row[1:].values)}\n"
         return header, content
     return None, None
-def CatchTriVariateData(data):
+def CatchTriVariateData(data, save_img = True):
     df = data.copy()
     df.drop(['Parameter', 'MODE_OF_OPERATION'], axis=1, inplace=True)
     content = ''
@@ -32,11 +45,17 @@ def CatchTriVariateData(data):
         for tec in df[df['REGION'] == region]['TECHNOLOGY']:
             temp = df[(df['REGION'] == region) & (df['TECHNOLOGY'] == tec)]
             temp.drop(['REGION', 'TECHNOLOGY'], axis=1, inplace=True)
-            header = f"[{region},{tec},{temp[temp.columns[0]].values[0]},*,*]:\n{' '.join(str(e) for e in temp.columns[1:].values)}:=\n{' '.join(str(e) for e in temp.iloc[:,2:].values[0])}\n"
+            if save_img:
+                mkdir_if_not_exists(f"etc/imgs/")
+                mkdir_if_not_exists(f"etc/imgs/{data['Parameter'].unique()[0]}")
+                saveLinePlot(y_label=f'{region},{tec},{temp[temp.columns[0]].values[0]}',
+                             x_label=temp.columns[1:].values,
+                             y_values=temp.iloc[:,1:].values[0], save_path=f"etc/imgs/{data['Parameter'].unique()[0]}/{tec}_{temp[temp.columns[0]].values[0]}")
+            header = f"[{region},{tec},{temp[temp.columns[0]].values[0]},*,*]:\n{' '.join(str(e) for e in temp.columns[1:].values)}:=\n{' '.join(str(e) for e in temp.iloc[:,1:].values[0])}\n"
             content += header
     return content
 
-def CatchTimeDependentData(data):
+def CatchTimeDependentData(data, save_img = True):
     df = data.copy()
     df.drop('Parameter', axis=1, inplace=True)
     content = ''
@@ -148,7 +167,7 @@ class SpreadSheetProcessing:
             self.clean_parameters[param]['txt'] = f"param {param} default {default} :=\n"
             if len(parameter['main_cols']) == 2 and self.clean_parameters[param]['values'].shape[0] > 0:
                 for region in self.args.list_regions:
-                    header, content = CatchUniVariateData(region, parameter['values'])
+                    header, content = CatchUniVariateData(region, parameter['values'], self.args.inspect_values)
                     self.clean_parameters[param]['txt'] += f"{header}:\n"
                     self.clean_parameters[param]['txt'] += f"{' '.join(str(e) for e in self.base_years)} :=\n"
                     self.clean_parameters[param]['txt'] += f"{content}"
@@ -159,16 +178,16 @@ class SpreadSheetProcessing:
                         header, content = CatchBiVariateData(region=region,
                                                              param_column=parameter['main_cols'][1],
                                                              param_value=tec,
-                                                             data=parameter['values'])
+                                                             data=parameter['values'], save_img=self.args.inspect_values)
                         if header is not None and content is not None:
                             self.clean_parameters[param]['txt'] += f"{header}:\n"
                             self.clean_parameters[param]['txt'] += f"{' '.join(str(e) for e in self.base_years)} :=\n"
                             self.clean_parameters[param]['txt'] += f"{content}"
             elif len(parameter['main_cols']) == 4:
-                content = CatchTriVariateData(data=parameter['values'])
+                content = CatchTriVariateData(data=parameter['values'], save_img=self.args.inspect_values)
                 self.clean_parameters[param]['txt'] += f"{content}"
             elif len(parameter['main_cols']) == 0:
-                header, content = CatchTimeDependentData(data=parameter['values'])
+                header, content = CatchTimeDependentData(data=parameter['values'],save_img=self.args.inspect_values)
                 if header is not None and content is not None:
                     self.clean_parameters[param]['txt'] += f"{header}"
                     self.clean_parameters[param]['txt'] += f"{content}"

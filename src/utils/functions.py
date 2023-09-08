@@ -1,6 +1,9 @@
 import os
 import glob
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 def mkdir_if_not_exists(default_save_path: str):
     """
     Make directory if not exists by a folder path
@@ -12,6 +15,25 @@ def mkdir_if_not_exists(default_save_path: str):
         os.mkdir(default_save_path)
 
 
+def saveHeatmap(x, y, data, save_path):
+    plt.subplots(figsize=(15, 15))
+    ax = sns.heatmap(data, linewidths=.5)
+    ax.set_xticks(np.arange(len(x)), labels=x)
+
+    ax.set_yticks(np.arange(len(y)), labels=y)
+    plt.setp(ax.get_yticklabels(), rotation=90, ha="right",
+             rotation_mode="anchor")
+    plt.yticks(rotation=0)
+    plt.savefig(f"{save_path}")
+    plt.close()
+
+def saveLinePlot(y_label, x_label, y_values, save_path):
+    plt.figure(figsize=(15, 15))
+    plt.plot(x_label, y_values)
+    plt.ylabel(y_label)
+    plt.xticks(rotation=45)
+    plt.savefig(f"{save_path}")
+    plt.close()
 def mergeParams(path, file_type):
     str = ''
     for dir in os.listdir(path):

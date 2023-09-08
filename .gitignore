@@ -1,5 +1,6 @@
 /.ipynb_checkpoints/
 /.idea/
+etc/imgs/
 *.pyc
 *.ipynb
 *.txt

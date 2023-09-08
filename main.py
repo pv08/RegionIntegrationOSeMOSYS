@@ -7,6 +7,7 @@ def main():
     parser.add_argument("--change_regions", type=bool, default=True, help="Define new regions")
     parser.add_argument("--list_regions", type=list, default=['RE_N', 'RE_NE', 'RE_SE', 'RE_S'], help="Define new regions")
     parser.add_argument("--save_json", type=bool, default=False)
+    parser.add_argument("--inspect_values", type=bool, default=True)
 
     args = parser.parse_args()
 
